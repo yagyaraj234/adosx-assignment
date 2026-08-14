@@ -51,20 +51,28 @@ Open http://localhost:3000. Backend must be running on :8000 first (override wit
 - **API** (`backend/app/main.py`): `GET /api/orgs` and `GET /api/disagreements?org_id=...`
   (required) with optional `reason` filter and `sort`. `org_id` is resolved server-side
   through the `locations` table — a request can never see rows outside the org it asked for.
-- **Frontend** (`frontend/app/page.tsx`): a plain table with an org selector (stands in for
-  the tenant boundary, since auth is explicitly out of scope), a reason filter, and
-  ascending/descending value sort.
-- **Tests** (`backend/tests/test_compare.py`): one test per disagreement type, plus tests for
-  the "no disagreement" case, epsilon tolerance, and each dirty `record_ref` format.
+  A disagreement whose `location_id` isn't in `locations.csv` at all falls into a synthetic
+  `UNRESOLVED` bucket instead of silently vanishing from every tenant's view (not triggered
+  by the current dataset, but the importer's "never silently drop" rule extends to the API
+  layer too).
+- **Frontend** (`frontend/app/page.tsx`): a table with an org selector (stands in for the
+  tenant boundary, since auth is explicitly out of scope), a reason filter with colored
+  badges, ascending/descending value sort, and loading/empty/error states. Still a plain
+  table, no component library — just enough visual structure to be easy to scan.
+- **Tests** (`backend/tests/test_compare.py`, `test_importer.py`): one test per disagreement
+  type, plus the "no disagreement" case, epsilon tolerance, each dirty `record_ref` format,
+  and an importer test asserting row-count-in equals row-count-out on a synthetic dirty CSV
+  (blank value, unparseable value, dangling ref, un-prefixed ref).
 
 ## What I deliberately did not build
 
 - Authentication — explicitly out of scope per the brief.
 - A 5th "location mismatch" disagreement category (System B carries its own `location_id`)
   — the brief asks for exactly four reasons; see DECISIONS #7.
-- Visual design/CSS beyond a plain HTML table — explicitly out of scope.
+- Heavy visual design (component library, animation, theming beyond CSS variables) —
+  explicitly out of scope; the table itself is still plain.
 - Migrations tooling (Alembic) — the schema is fixed and the dataset is static; see DECISIONS #3.
-- Pagination, loading skeletons, or any performance work — 120 rows per file, not graded.
+- Pagination, or any performance work — 120 rows per file, not graded.
 - A runtime check for `record_ref` normalization collisions — checked the data by hand and
   found none; see DECISIONS #4.
 
@@ -101,7 +109,7 @@ similarly a reasonable-sounding guess for money values rather than a specified r
 
 ### c. If you had a second day, what would you fix first?
 
-I'd add an importer-level test that asserts row count in equals row count out regardless of
-CSV content (currently proven by manual inspection, not asserted in code), then add the
-normalization-collision check I skipped in DECISIONS #4, then improve the frontend with
-proper loading/error states and an env-based API URL for a real deployment.
+I'd add the normalization-collision check I skipped in DECISIONS #4, add pagination and a
+proper env-based API URL setup for a real deployment, and double-check the `total_value` vs
+`value` mapping from b. directly with whoever owns System B rather than inferring it from
+sample rows.

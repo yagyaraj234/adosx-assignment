@@ -46,8 +46,12 @@
    out testing "the part where disagreements are decided" — a pure function over plain
    data is trivial to unit test without a database, a fixture, or a running app.
 
-10. **Unparseable/blank values are not their own disagreement reason.** Rejected inventing
-    a 5th "unparseable value" category — a blank or non-numeric value is stored as `None`
-    (with the raw string preserved for display), and `None` vs. a real number is naturally
-    caught by the existing `value_mismatch` reason. This satisfies "don't silently drop
-    dirty rows" without exceeding the four required categories.
+10. **Dirty data is absorbed by fallback values, not by inventing new categories.**
+    Unparseable/blank values are stored as `None` (raw string kept for display), which the
+    comparison naturally reports as `value_mismatch` against a real number — no separate
+    "unparseable value" reason needed. Symmetrically, a disagreement whose `location_id`
+    isn't in `locations.csv` falls into a synthetic `UNRESOLVED` org bucket rather than a
+    `None` org that no tenant filter would ever match. Rejected inventing dedicated
+    categories/handling for either case because both are really the same problem —
+    "don't silently drop or hide a row" — solved once by falling back to a value the
+    existing logic already knows how to handle, instead of twice by special-casing.
