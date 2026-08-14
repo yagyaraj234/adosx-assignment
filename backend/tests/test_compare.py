@@ -75,3 +75,8 @@ def test_unparseable_value_disagrees_with_a_real_number():
 def test_ref_normalization_matches_dirty_variants():
     result = find_disagreements([a_row(record_id="REC-1034")], [b_row(record_ref_raw="rec1034")])
     assert result == []
+
+
+def test_ref_normalization_matches_bare_digit_variant():
+    result = find_disagreements([a_row(record_id="REC-1112")], [b_row(record_ref_raw="1112")])
+    assert result == []

@@ -20,7 +20,7 @@ def normalize_ref(raw: str | None) -> str | None:
     if raw is None:
         return None
     cleaned = raw.strip().upper().replace("-", "").replace("_", "").replace(" ", "")
-    match = re.match(r"^REC(\d+)$", cleaned)
+    match = re.match(r"^(?:REC)?(\d+)$", cleaned)
     if not match:
         return None
     return f"REC-{match.group(1)}"
