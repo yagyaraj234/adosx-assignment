@@ -80,3 +80,31 @@ def test_ref_normalization_matches_dirty_variants():
 def test_ref_normalization_matches_bare_digit_variant():
     result = find_disagreements([a_row(record_id="REC-1112")], [b_row(record_ref_raw="1112")])
     assert result == []
+
+
+def test_entries_summing_to_the_system_a_total_are_a_split_not_a_duplicate():
+    entries = [
+        b_row(entry_id="ENT-1", value=40.0, raw="40.00"),
+        b_row(entry_id="ENT-2", value=60.0, raw="60.00"),
+    ]
+    assert find_disagreements([a_row(total_value=100.0)], entries) == []
+
+
+def test_split_entries_that_do_not_add_up_are_still_a_duplicate():
+    entries = [
+        b_row(entry_id="ENT-1", value=40.0, raw="40.00"),
+        b_row(entry_id="ENT-2", value=70.0, raw="70.00"),
+    ]
+    result = find_disagreements([a_row(total_value=100.0)], entries)
+    assert len(result) == 1
+    assert result[0]["reason"] == DUPLICATE_IN_B
+
+
+def test_split_cannot_be_proven_when_a_value_is_unparseable():
+    entries = [
+        b_row(entry_id="ENT-1", value=40.0, raw="40.00"),
+        b_row(entry_id="ENT-2", value=None, raw=""),
+    ]
+    result = find_disagreements([a_row(total_value=100.0)], entries)
+    assert len(result) == 1
+    assert result[0]["reason"] == DUPLICATE_IN_B

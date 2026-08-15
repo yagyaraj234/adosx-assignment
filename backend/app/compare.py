@@ -19,6 +19,23 @@ def _values_agree(a_value, b_value):
     return abs(a_value - b_value) <= VALUE_TOLERANCE
 
 
+def _is_split(a_row, entries):
+    """True when several System B entries add up to System A's total.
+
+    That is a record entered in parts, not entered twice - the data labels one such
+    entry "Entry part 2 of 2". Decided on the arithmetic, not the label, because the
+    label is free text. If any value is unparseable the split cannot be proven, so
+    the record falls back to being reported as a duplicate.
+
+    ponytail: a sum is weak evidence - a genuine double entry of a record whose value is
+    exactly half would pass as a split. Upgrade path is a part-of field in System B; this
+    export has none.
+    """
+    if a_row["total_value"] is None or any(e["value"] is None for e in entries):
+        return False
+    return abs(sum(e["value"] for e in entries) - a_row["total_value"]) <= VALUE_TOLERANCE
+
+
 def find_disagreements(system_a_rows, system_b_rows):
     """
     system_a_rows: iterable of dicts with record_id, location_id, total_value, total_value_raw
@@ -64,7 +81,7 @@ def find_disagreements(system_a_rows, system_b_rows):
                     "entry_ids": [],
                 }
             )
-        elif len(entries) > 1:
+        elif len(entries) > 1 and not _is_split(a_row, entries):
             disagreements.append(
                 {
                     "reason": DUPLICATE_IN_B,
@@ -75,7 +92,7 @@ def find_disagreements(system_a_rows, system_b_rows):
                     "entry_ids": [e["entry_id"] for e in entries],
                 }
             )
-        else:
+        elif len(entries) == 1:
             entry = entries[0]
             if not _values_agree(a_row["total_value"], entry["value"]):
                 disagreements.append(
