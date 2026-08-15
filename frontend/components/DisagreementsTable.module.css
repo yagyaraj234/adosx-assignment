@@ -93,9 +93,19 @@
   color: #6d28d9;
 }
 
+.badge.duplicate_in_a {
+  background: color-mix(in srgb, #c026d3 15%, transparent);
+  color: #a21caf;
+}
+
 .badge.value_mismatch {
   background: color-mix(in srgb, #2563eb 15%, transparent);
   color: #1d4ed8;
+}
+
+.badge.voided_in_a {
+  background: color-mix(in srgb, #64748b 18%, transparent);
+  color: #475569;
 }
 
 .empty {

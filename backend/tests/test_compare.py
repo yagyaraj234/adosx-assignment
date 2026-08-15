@@ -1,4 +1,5 @@
 from app.compare import (
+    DUPLICATE_IN_A,
     DUPLICATE_IN_B,
     MISSING_IN_B,
     ORPHAN_REF,
@@ -126,3 +127,31 @@ def test_voided_record_still_present_in_system_b_is_flagged():
 
 def test_voided_record_absent_from_system_b_is_not_a_disagreement():
     assert find_disagreements([a_row(state="VOIDED")], []) == []
+
+
+def test_two_system_a_records_claiming_one_reference_is_flagged():
+    rows = [a_row(record_id="REC-1034"), a_row(record_id="rec1034", raw="105.00")]
+    result = find_disagreements(rows, [])
+    assert len(result) == 1
+    assert result[0]["reason"] == DUPLICATE_IN_A
+    assert result[0]["system_a_value"] == "100.00; 105.00"
+
+
+def test_ref_normalization_matches_spaced_variant():
+    assert find_disagreements([a_row(record_id="REC-1070")], [b_row(record_ref_raw=" REC - 1070 ")]) == []
+
+
+def test_unnormalizable_refs_do_not_collapse_into_one_bucket():
+    """Two references that will not normalize are two orphans, not one duplicate."""
+    entries = [
+        b_row(entry_id="ENT-1", record_ref_raw="???"),
+        b_row(entry_id="ENT-2", record_ref_raw="n/a"),
+    ]
+    result = find_disagreements([], entries)
+    assert [d["reason"] for d in result] == [ORPHAN_REF, ORPHAN_REF]
+
+
+def test_blank_references_never_match_each_other():
+    """A blank record_id and a blank record_ref are not evidence of the same record."""
+    result = find_disagreements([a_row(record_id="")], [b_row(record_ref_raw="")])
+    assert sorted(d["reason"] for d in result) == [MISSING_IN_B, ORPHAN_REF]
