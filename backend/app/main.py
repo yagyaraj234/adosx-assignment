@@ -18,7 +18,10 @@ DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 async def lifespan(app: FastAPI):
     reset_db()
     with Session(engine) as session:
-        import_data(session, DATA_DIR)
+        rejected = import_data(session, DATA_DIR)
+    for line in rejected:
+        print(f"[import] rejected {line}", flush=True)
+    print(f"[import] {len(rejected)} row(s) rejected", flush=True)
     yield
 
 
