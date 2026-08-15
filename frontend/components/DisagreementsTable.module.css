@@ -59,6 +59,19 @@
   color: var(--muted);
 }
 
+/* A location-mismatch row prints both sides here, so this is the one cell that wraps. */
+.location {
+  white-space: normal;
+}
+
+.sideLabel {
+  display: inline-block;
+  min-width: 1.1rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 .stackedValue {
   display: block;
 }
@@ -101,6 +114,11 @@
 .badge.value_mismatch {
   background: color-mix(in srgb, #2563eb 15%, transparent);
   color: #1d4ed8;
+}
+
+.badge.location_mismatch {
+  background: color-mix(in srgb, #0d9488 15%, transparent);
+  color: #0f766e;
 }
 
 .badge.voided_in_a {

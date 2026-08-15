@@ -13,6 +13,8 @@ from app.parsing import parse_number
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 
+UNRESOLVED_ORG = "UNRESOLVED"  # bucket for a location_id that isn't in locations.csv at all
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -35,19 +37,46 @@ app.add_middleware(
 )
 
 
-def _first_value(raw: str | None) -> float | None:
-    if raw is None:
-        return None
-    return parse_number(raw.split(";")[0])
-
-
-UNRESOLVED_ORG = "UNRESOLVED"  # bucket for a location_id that isn't in locations.csv at all
-
-
 def _location_maps(locations):
     org_of = {loc.location_id: loc.org_id for loc in locations}
     name_of = {loc.location_id: loc.location_name for loc in locations}
     return org_of, name_of
+
+
+def _org_of(location_id, org_of):
+    return org_of.get(location_id, UNRESOLVED_ORG)
+
+
+def _own_location(location_ids, org_id, org_of):
+    """The first location on one side of a disagreement that belongs to the requesting
+    org, or None. Every redaction goes through here, so a location's name can never be
+    returned without its id having passed the same check."""
+    for location_id in location_ids:
+        if _org_of(location_id, org_of) == org_id:
+            return location_id
+    return None
+
+
+def _own_entry_ids(disagreement, org_id, org_of):
+    """System B entry ids, minus any entry filed under another tenant's location.
+
+    `entry_ids` and `b_location_ids` are built in step from the same entries, so an entry
+    id can be matched to the location it was filed under and dropped with it.
+    """
+    return [
+        entry_id
+        for entry_id, location_id in zip(disagreement["entry_ids"], disagreement["b_location_ids"])
+        if _org_of(location_id, org_of) == org_id
+    ]
+
+
+def _sort_value(disagreement):
+    """Sort on System A's value when there is one, else System B's."""
+    for raw in [*disagreement["system_a_values"], *disagreement["system_b_values"]]:
+        value = parse_number(raw)
+        if value is not None:
+            return value
+    return None
 
 
 @app.get("/api/orgs")
@@ -82,29 +111,49 @@ def list_disagreements(
     if org_id not in known_orgs:
         raise HTTPException(status_code=404, detail=f"unknown org_id '{org_id}'")
 
-    disagreements = find_disagreements(a_rows, b_rows)
+    scoped = []
+    for d in find_disagreements(a_rows, b_rows):
+        # A disagreement is visible to a tenant if *any* location it touches belongs to
+        # that tenant - otherwise a record the two systems filed under different orgs
+        # would be invisible to both of them.
+        involved_orgs = {
+            _org_of(loc_id, org_of) for loc_id in [*d["a_location_ids"], *d["b_location_ids"]]
+        }
+        if org_id not in involved_orgs:
+            continue
+        if reason and d["reason"] != reason:
+            continue
 
-    scoped = [
-        d
-        for d in disagreements
-        if org_of.get(d["location_id"], UNRESOLVED_ORG) == org_id
-    ]
-
-    if reason:
-        scoped = [d for d in scoped if d["reason"] == reason]
+        a_location = _own_location(d["a_location_ids"], org_id, org_of)
+        b_location = _own_location(d["b_location_ids"], org_id, org_of)
+        scoped.append(
+            {
+                "reason": d["reason"],
+                "record_ref": d["record_ref"],
+                "location_id": a_location,
+                "location_name": name_of.get(a_location) if a_location else None,
+                "b_location_id": b_location,
+                "b_location_name": name_of.get(b_location) if b_location else None,
+                # True when the other system filed this record under a tenant that is
+                # not this one. The other tenant's location is redacted above; only the
+                # fact that it is elsewhere crosses the boundary.
+                "cross_tenant": involved_orgs != {org_id},
+                # Values cross the boundary on purpose (DECISIONS #6): the disputed value
+                # is the whole point of the row. Identifiers do not.
+                "system_a_values": d["system_a_values"],
+                "system_b_values": d["system_b_values"],
+                "entry_ids": _own_entry_ids(d, org_id, org_of),
+                "sort_value": _sort_value(d),
+            }
+        )
 
     reverse = sort.startswith("-")
-    for d in scoped:
-        a_val = _first_value(d["system_a_value"])
-        b_val = _first_value(d["system_b_value"])
-        d["sort_value"] = a_val if a_val is not None else b_val
-        d["location_name"] = name_of.get(d["location_id"])
 
     def sort_key(d):
-        v = d["sort_value"]
-        if v is None:
-            return (1, 0)
-        return (0, -v if reverse else v)
+        value = d["sort_value"]
+        if value is None:
+            return (1, 0)  # rows with no parseable value on either side always sort last
+        return (0, -value if reverse else value)
 
     scoped.sort(key=sort_key)
 

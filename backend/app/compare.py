@@ -2,6 +2,10 @@
 
 Takes plain dicts in, plain dicts out - no DB session, no ORM objects - so it can be
 tested without a database.
+
+Locations are returned as lists of every location involved on each side. The caller
+(the API) is what decides which of them a given tenant is allowed to see; this module
+deliberately never filters by org, because a disagreement can straddle two of them.
 """
 from app.parsing import normalize_ref
 
@@ -13,7 +17,18 @@ ORPHAN_REF = "orphan_ref"
 DUPLICATE_IN_B = "duplicate_in_b"
 DUPLICATE_IN_A = "duplicate_in_a"
 VALUE_MISMATCH = "value_mismatch"
+LOCATION_MISMATCH = "location_mismatch"
 VOIDED_IN_A = "voided_in_a"
+
+REASONS = (
+    MISSING_IN_B,
+    ORPHAN_REF,
+    DUPLICATE_IN_B,
+    DUPLICATE_IN_A,
+    VALUE_MISMATCH,
+    LOCATION_MISMATCH,
+    VOIDED_IN_A,
+)
 
 
 def _match_key(raw, side, index):
@@ -63,13 +78,26 @@ def _is_split(a_row, entries):
     return abs(sum(e["value"] for e in entries) - a_row["total_value"]) <= VALUE_TOLERANCE
 
 
+def _disagreement(reason, record_ref, a_rows, b_entries):
+    return {
+        "reason": reason,
+        "record_ref": record_ref,
+        "a_location_ids": [r["location_id"] for r in a_rows],
+        "b_location_ids": [e["location_id"] for e in b_entries],
+        "system_a_values": [r["total_value_raw"] for r in a_rows],
+        "system_b_values": [e["value_raw"] for e in b_entries],
+        "entry_ids": [e["entry_id"] for e in b_entries],
+    }
+
+
 def find_disagreements(system_a_rows, system_b_rows):
     """
     system_a_rows: dicts with record_id, location_id, total_value, total_value_raw, state
     system_b_rows: dicts with entry_id, record_ref_raw, location_id, value, value_raw
 
     Returns a list of disagreement dicts:
-        reason, record_ref, location_id, system_a_value, system_b_value, entry_ids
+        reason, record_ref, a_location_ids, b_location_ids,
+        system_a_values, system_b_values, entry_ids
 
     One reason per record: the first thing that is wrong with it is what gets reported.
     """
@@ -83,88 +111,58 @@ def find_disagreements(system_a_rows, system_b_rows):
             continue
         for entry in entries:
             disagreements.append(
-                {
-                    "reason": ORPHAN_REF,
-                    "record_ref": entry["record_ref_raw"],
-                    "location_id": entry["location_id"],
-                    "system_a_value": None,
-                    "system_b_value": entry["value_raw"],
-                    "entry_ids": [entry["entry_id"]],
-                }
+                _disagreement(ORPHAN_REF, entry["record_ref_raw"], [], [entry])
             )
 
     for key, a_rows in a_by_ref.items():
         entries = b_by_ref.get(key, [])
+        record_ref = a_rows[0]["record_id"]
 
         # Two System A records claiming one reference: there is no single row left to
         # compare against, so report the ambiguity itself and stop there.
         if len(a_rows) > 1:
             disagreements.append(
-                {
-                    "reason": DUPLICATE_IN_A,
-                    "record_ref": a_rows[0]["record_id"],
-                    "location_id": a_rows[0]["location_id"],
-                    "system_a_value": "; ".join(r["total_value_raw"] for r in a_rows),
-                    "system_b_value": "; ".join(e["value_raw"] for e in entries) or None,
-                    "entry_ids": [e["entry_id"] for e in entries],
-                }
+                _disagreement(DUPLICATE_IN_A, record_ref, a_rows, entries)
             )
             continue
 
         a_row = a_rows[0]
         voided = (a_row.get("state") or "").strip().upper() == VOIDED
 
-        if len(entries) == 0 and not voided:
-            # A voided record with no entry in System B is the expected outcome, not a
-            # disagreement - so this branch is skipped entirely when the record is voided.
-            disagreements.append(
-                {
-                    "reason": MISSING_IN_B,
-                    "record_ref": a_row["record_id"],
-                    "location_id": a_row["location_id"],
-                    "system_a_value": a_row["total_value_raw"],
-                    "system_b_value": None,
-                    "entry_ids": [],
-                }
-            )
-        elif len(entries) == 0:
-            pass  # voided and absent from System B: nothing to report
-        elif voided:
-            # System A voided the record but System B still carries an entry for it:
-            # the two systems disagree about whether the event stands at all.
-            disagreements.append(
-                {
-                    "reason": VOIDED_IN_A,
-                    "record_ref": a_row["record_id"],
-                    "location_id": a_row["location_id"],
-                    "system_a_value": a_row["total_value_raw"],
-                    "system_b_value": "; ".join(e["value_raw"] for e in entries),
-                    "entry_ids": [e["entry_id"] for e in entries],
-                }
-            )
-        elif len(entries) > 1 and not _is_split(a_row, entries):
-            disagreements.append(
-                {
-                    "reason": DUPLICATE_IN_B,
-                    "record_ref": a_row["record_id"],
-                    "location_id": a_row["location_id"],
-                    "system_a_value": a_row["total_value_raw"],
-                    "system_b_value": "; ".join(e["value_raw"] for e in entries),
-                    "entry_ids": [e["entry_id"] for e in entries],
-                }
-            )
-        elif len(entries) == 1:
-            entry = entries[0]
-            if not _values_agree(a_row["total_value"], entry["value"]):
+        if not entries:
+            # A voided record having no entry in System B is the expected outcome,
+            # not a disagreement.
+            if not voided:
                 disagreements.append(
-                    {
-                        "reason": VALUE_MISMATCH,
-                        "record_ref": a_row["record_id"],
-                        "location_id": a_row["location_id"],
-                        "system_a_value": a_row["total_value_raw"],
-                        "system_b_value": entry["value_raw"],
-                        "entry_ids": [entry["entry_id"]],
-                    }
+                    _disagreement(MISSING_IN_B, record_ref, [a_row], [])
                 )
+            continue
+
+        if voided:
+            disagreements.append(
+                _disagreement(VOIDED_IN_A, record_ref, [a_row], entries)
+            )
+            continue
+
+        if len(entries) > 1:
+            if not _is_split(a_row, entries):
+                disagreements.append(
+                    _disagreement(DUPLICATE_IN_B, record_ref, [a_row], entries)
+                )
+                continue
+            # A proven split already reconciles against System A's total, so fall
+            # through to the location check below.
+        elif not _values_agree(a_row["total_value"], entries[0]["value"]):
+            disagreements.append(
+                _disagreement(VALUE_MISMATCH, record_ref, [a_row], entries)
+            )
+            continue
+
+        # The values reconcile, but the two systems may still have filed the record
+        # under different locations - and therefore, possibly, different tenants.
+        if any(e["location_id"] != a_row["location_id"] for e in entries):
+            disagreements.append(
+                _disagreement(LOCATION_MISMATCH, record_ref, [a_row], entries)
+            )
 
     return disagreements

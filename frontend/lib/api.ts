@@ -5,10 +5,16 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 export type Disagreement = {
   reason: Reason;
   record_ref: string;
-  location_id: string;
+  /** System A's location, or null when it belongs to another tenant (redacted server-side). */
+  location_id: string | null;
   location_name: string | null;
-  system_a_value: string | null;
-  system_b_value: string | null;
+  /** System B's location, under the same redaction rule. */
+  b_location_id: string | null;
+  b_location_name: string | null;
+  /** The other system filed this record under a tenant that is not the one being viewed. */
+  cross_tenant: boolean;
+  system_a_values: string[];
+  system_b_values: string[];
   entry_ids: string[];
   sort_value: number | null;
 };

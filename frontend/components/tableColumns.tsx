@@ -1,4 +1,4 @@
-export const COLUMN_WIDTHS = ["20%", "12%", "22%", "23%", "23%"];
+export const COLUMN_WIDTHS = ["22%", "12%", "24%", "21%", "21%"];
 
 export function TableColgroup() {
   return (
@@ -23,6 +23,7 @@ export function TableHeaderRow({ styles }: { styles: Record<string, string> }) {
       >
         System B value
       </th>
+
     </tr>
   );
 }
