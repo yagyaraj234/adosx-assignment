@@ -1,0 +1,105 @@
+.tableWrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.tableWrap table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.tableWrap thead th {
+  text-align: left;
+  padding: 0.6rem 0.9rem;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tableWrap thead th:last-child {
+  border-right: none;
+}
+
+.tableWrap tbody td {
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tableWrap tbody td:last-child {
+  border-right: none;
+}
+
+.tableWrap tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tableWrap tbody tr:hover {
+  background: var(--row-hover);
+}
+
+.value {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-align: right;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.stackedValue {
+  display: block;
+}
+
+.stackedValue + .stackedValue {
+  margin-top: 0.15rem;
+  padding-top: 0.15rem;
+  border-top: 1px dashed var(--border);
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge.missing_in_b {
+  background: color-mix(in srgb, #d97706 15%, transparent);
+  color: #b45309;
+}
+
+.badge.orphan_ref {
+  background: color-mix(in srgb, #dc2626 15%, transparent);
+  color: #b91c1c;
+}
+
+.badge.duplicate_in_b {
+  background: color-mix(in srgb, #7c3aed 15%, transparent);
+  color: #6d28d9;
+}
+
+.badge.value_mismatch {
+  background: color-mix(in srgb, #2563eb 15%, transparent);
+  color: #1d4ed8;
+}
+
+.empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--muted);
+}

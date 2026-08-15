@@ -1,61 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import styles from "./page.module.css";
+import { SortOrder } from "@/lib/api";
+import { ReasonFilter } from "@/lib/reasons";
+import { useOrgs } from "@/hooks/useOrgs";
+import { useDisagreements } from "@/hooks/useDisagreements";
+import { Toolbar } from "@/components/Toolbar";
+import { ErrorBanner } from "@/components/ErrorBanner";
+import { DisagreementsTable } from "@/components/DisagreementsTable";
+import { TableSkeleton } from "@/components/TableSkeleton";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
-type Disagreement = {
-  reason: string;
-  record_ref: string;
-  location_id: string;
-  location_name: string | null;
-  system_a_value: string | null;
-  system_b_value: string | null;
-  entry_ids: string[];
-  sort_value: number | null;
-};
-
-const REASONS = [
-  { value: "", label: "All reasons" },
-  { value: "missing_in_b", label: "Missing in System B" },
-  { value: "orphan_ref", label: "Orphan ref in System B" },
-  { value: "duplicate_in_b", label: "Duplicate in System B" },
-  { value: "value_mismatch", label: "Value mismatch" },
-];
-
-const REASON_LABEL: Record<string, string> = Object.fromEntries(
-  REASONS.filter((r) => r.value).map((r) => [r.value, r.label])
-);
+const API_ERROR_MESSAGE = "Could not reach the API. Is the backend running on :8000?";
 
 export default function Home() {
-  const [orgs, setOrgs] = useState<string[]>([]);
   const [orgId, setOrgId] = useState("");
-  const [reason, setReason] = useState("");
-  const [sort, setSort] = useState<"value" | "-value">("value");
-  const [rows, setRows] = useState<Disagreement[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [reason, setReason] = useState<ReasonFilter>("");
+  const [sort, setSort] = useState<SortOrder>("value");
 
-  useEffect(() => {
-    fetch(`${API_BASE}/api/orgs`)
-      .then((r) => r.json())
-      .then((data: string[]) => {
-        setOrgs(data);
-        if (data.length > 0) setOrgId(data[0]);
-      })
-      .catch(() => setError("Could not reach the API. Is the backend running on :8000?"));
-  }, []);
+  const orgsQuery = useOrgs();
+  const orgs = orgsQuery.data ?? [];
+  const activeOrgId = orgId || orgs[0] || "";
 
-  useEffect(() => {
-    if (!orgId) return;
-    const params = new URLSearchParams({ org_id: orgId, sort });
-    if (reason) params.set("reason", reason);
-    setRows(null);
-    fetch(`${API_BASE}/api/disagreements?${params}`)
-      .then((r) => r.json())
-      .then(setRows)
-      .catch(() => setError("Could not reach the API. Is the backend running on :8000?"));
-  }, [orgId, reason, sort]);
+  const disagreementsQuery = useDisagreements(activeOrgId, reason, sort);
+  const rows = disagreementsQuery.data;
 
   return (
     <main className={styles.page}>
@@ -66,81 +34,42 @@ export default function Home() {
         </p>
       </div>
 
-      {error && <div className={`${styles.banner} ${styles.error}`}>{error}</div>}
+      {orgsQuery.isError && <ErrorBanner message={API_ERROR_MESSAGE} />}
 
-      <div className={styles.toolbar}>
-        <label className={styles.field}>
-          Org (tenant)
-          <select value={orgId} onChange={(e) => setOrgId(e.target.value)}>
-            {orgs.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-        </label>
+      {orgsQuery.isSuccess && orgs.length === 0 && (
+        <ErrorBanner message="No orgs found. Nothing to compare yet." />
+      )}
 
-        <label className={styles.field}>
-          Reason
-          <select value={reason} onChange={(e) => setReason(e.target.value)}>
-            {REASONS.map((r) => (
-              <option key={r.value} value={r.value}>
-                {r.label}
-              </option>
-            ))}
-          </select>
-        </label>
+      <Toolbar
+        orgs={orgs}
+        orgId={activeOrgId}
+        onOrgChange={setOrgId}
+        reason={reason}
+        onReasonChange={setReason}
+        sort={sort}
+        onSortChange={setSort}
+        disabled={orgsQuery.isLoading || orgs.length === 0}
+      />
 
-        <label className={styles.field}>
-          Sort by value
-          <select value={sort} onChange={(e) => setSort(e.target.value as "value" | "-value")}>
-            <option value="value">Ascending</option>
-            <option value="-value">Descending</option>
-          </select>
-        </label>
-      </div>
+      {disagreementsQuery.isError ? (
+        <ErrorBanner message={API_ERROR_MESSAGE} />
+      ) : rows === undefined ? (
+        <>
+          <p className={styles.summary}>Loading…</p>
+          <TableSkeleton />
+        </>
+      ) : (
+        <>
+          <p className={styles.summary}>
+            {rows.length} disagreement{rows.length === 1 ? "" : "s"}
+            {disagreementsQuery.isFetching && " · refreshing…"}
+          </p>
 
-      <p className={styles.summary}>
-        {rows === null ? "Loading…" : `${rows.length} disagreement${rows.length === 1 ? "" : "s"}`}
-      </p>
-
-      <div className={styles.tableWrap}>
-        <table>
-          <thead>
-            <tr>
-              <th>Reason</th>
-              <th>Record</th>
-              <th>Location</th>
-              <th className={styles.value}>System A value</th>
-              <th className={styles.value}>System B value</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows &&
-              rows.map((row) => (
-                <tr key={`${row.reason}-${row.record_ref}-${row.entry_ids.join(",")}`}>
-                  <td>
-                    <span className={`${styles.badge} ${styles[row.reason] ?? ""}`}>
-                      {REASON_LABEL[row.reason] ?? row.reason}
-                    </span>
-                  </td>
-                  <td>{row.record_ref}</td>
-                  <td>
-                    {row.location_name ?? row.location_id}
-                    {row.location_name && (
-                      <span className={styles.muted}> ({row.location_id})</span>
-                    )}
-                  </td>
-                  <td className={styles.value}>{row.system_a_value ?? "—"}</td>
-                  <td className={styles.value}>{row.system_b_value ?? "—"}</td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-        {rows && rows.length === 0 && (
-          <div className={styles.empty}>No disagreements for this org/filter.</div>
-        )}
-      </div>
+          <div className={disagreementsQuery.isFetching ? styles.refreshing : undefined}>
+            <DisagreementsTable rows={rows} />
+          </div>
+        </>
+      )}
     </main>
   );
 }

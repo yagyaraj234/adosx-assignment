@@ -19,130 +19,13 @@
   font-size: 0.9rem;
 }
 
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.25rem;
-  align-items: end;
-  padding: 1rem 1.25rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--card);
-  margin-bottom: 1rem;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-
-.field select {
-  font-size: 0.9rem;
-  padding: 0.35rem 0.5rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--background);
-  color: var(--foreground);
-  min-width: 12rem;
-}
-
 .summary {
   font-size: 0.85rem;
   color: var(--muted);
   margin-bottom: 0.75rem;
 }
 
-.banner {
-  padding: 0.75rem 1rem;
-  border-radius: 6px;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-}
-
-.banner.error {
-  background: color-mix(in srgb, #dc2626 12%, transparent);
-  border: 1px solid color-mix(in srgb, #dc2626 40%, transparent);
-  color: #dc2626;
-}
-
-.tableWrap {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.tableWrap table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-
-.tableWrap thead th {
-  text-align: left;
-  padding: 0.6rem 0.9rem;
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.tableWrap tbody td {
-  padding: 0.55rem 0.9rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.tableWrap tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.tableWrap tbody tr:hover {
-  background: var(--row-hover);
-}
-
-.value {
-  font-variant-numeric: tabular-nums;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  text-align: right;
-}
-
-.muted {
-  color: var(--muted);
-}
-
-.badge {
-  display: inline-block;
-  padding: 0.15rem 0.55rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.badge.missing_in_b {
-  background: color-mix(in srgb, #d97706 15%, transparent);
-  color: #b45309;
-}
-
-.badge.orphan_ref {
-  background: color-mix(in srgb, #dc2626 15%, transparent);
-  color: #b91c1c;
-}
-
-.badge.duplicate_in_b {
-  background: color-mix(in srgb, #7c3aed 15%, transparent);
-  color: #6d28d9;
-}
-
-.badge.value_mismatch {
-  background: color-mix(in srgb, #2563eb 15%, transparent);
-  color: #1d4ed8;
-}
-
-.empty {
-  padding: 2rem;
-  text-align: center;
-  color: var(--muted);
+.refreshing {
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
 }
