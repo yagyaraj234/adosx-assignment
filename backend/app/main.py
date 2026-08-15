@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 
-from app.compare import find_disagreements
+from app.compare import REASONS, find_disagreements
 from app.db import engine, reset_db
 from app.importer import import_data
 from app.models import Location, SystemARecord, SystemBEntry
@@ -110,6 +110,9 @@ def list_disagreements(
     known_orgs = {loc.org_id for loc in locations} | {UNRESOLVED_ORG}
     if org_id not in known_orgs:
         raise HTTPException(status_code=404, detail=f"unknown org_id '{org_id}'")
+    if reason and reason not in REASONS:
+        # An unrecognised filter returns an error, not a silently empty table.
+        raise HTTPException(status_code=400, detail=f"unknown reason '{reason}'")
 
     scoped = []
     for d in find_disagreements(a_rows, b_rows):

@@ -62,8 +62,12 @@ def test_every_row_a_tenant_sees_touches_one_of_its_own_locations(client):
             assert visible and visible <= own, f"{org_id} got {visible} for {d['record_ref']}"
 
 
-def test_unknown_org_is_an_error(client):
+def test_unknown_org_and_unknown_reason_are_errors_not_empty_tables(client):
     assert client.get("/api/disagreements", params={"org_id": "ORG-Z"}).status_code == 404
+    assert (
+        client.get("/api/disagreements", params={"org_id": "ORG-A", "reason": "nope"}).status_code
+        == 400
+    )
 
 
 def test_reason_filter_is_a_subset_of_the_unfiltered_result(client):
