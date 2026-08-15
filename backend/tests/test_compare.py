@@ -3,16 +3,24 @@ from app.compare import (
     MISSING_IN_B,
     ORPHAN_REF,
     VALUE_MISMATCH,
+    VOIDED_IN_A,
     find_disagreements,
 )
 
 
-def a_row(record_id="REC-1001", location_id="LOC-101", total_value=100.0, raw="100.00"):
+def a_row(
+    record_id="REC-1001",
+    location_id="LOC-101",
+    total_value=100.0,
+    raw="100.00",
+    state="CONFIRMED",
+):
     return {
         "record_id": record_id,
         "location_id": location_id,
         "total_value": total_value,
         "total_value_raw": raw,
+        "state": state,
     }
 
 
@@ -108,3 +116,13 @@ def test_split_cannot_be_proven_when_a_value_is_unparseable():
     result = find_disagreements([a_row(total_value=100.0)], entries)
     assert len(result) == 1
     assert result[0]["reason"] == DUPLICATE_IN_B
+
+
+def test_voided_record_still_present_in_system_b_is_flagged():
+    result = find_disagreements([a_row(state="VOIDED")], [b_row()])
+    assert len(result) == 1
+    assert result[0]["reason"] == VOIDED_IN_A
+
+
+def test_voided_record_absent_from_system_b_is_not_a_disagreement():
+    assert find_disagreements([a_row(state="VOIDED")], []) == []

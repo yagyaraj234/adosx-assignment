@@ -6,11 +6,13 @@ tested without a database.
 from app.parsing import normalize_ref
 
 VALUE_TOLERANCE = 0.01
+VOIDED = "VOIDED"
 
 MISSING_IN_B = "missing_in_b"
 ORPHAN_REF = "orphan_ref"
 DUPLICATE_IN_B = "duplicate_in_b"
 VALUE_MISMATCH = "value_mismatch"
+VOIDED_IN_A = "voided_in_a"
 
 
 def _values_agree(a_value, b_value):
@@ -69,8 +71,11 @@ def find_disagreements(system_a_rows, system_b_rows):
 
     for ref, a_row in a_by_ref.items():
         entries = b_by_ref.get(ref, [])
+        voided = (a_row.get("state") or "").strip().upper() == VOIDED
 
-        if len(entries) == 0:
+        if len(entries) == 0 and not voided:
+            # A voided record with no entry in System B is the expected outcome, not a
+            # disagreement - so this branch is skipped entirely when the record is voided.
             disagreements.append(
                 {
                     "reason": MISSING_IN_B,
@@ -79,6 +84,21 @@ def find_disagreements(system_a_rows, system_b_rows):
                     "system_a_value": a_row["total_value_raw"],
                     "system_b_value": None,
                     "entry_ids": [],
+                }
+            )
+        elif len(entries) == 0:
+            pass  # voided and absent from System B: nothing to report
+        elif voided:
+            # System A voided the record but System B still carries an entry for it:
+            # the two systems disagree about whether the event stands at all.
+            disagreements.append(
+                {
+                    "reason": VOIDED_IN_A,
+                    "record_ref": a_row["record_id"],
+                    "location_id": a_row["location_id"],
+                    "system_a_value": a_row["total_value_raw"],
+                    "system_b_value": "; ".join(e["value_raw"] for e in entries),
+                    "entry_ids": [e["entry_id"] for e in entries],
                 }
             )
         elif len(entries) > 1 and not _is_split(a_row, entries):
