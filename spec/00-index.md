@@ -1,5 +1,12 @@
 # Disagreements Screen — Spec Index
 
+> **This is the plan as written before the build, kept as a record of it. Where it and the
+> code disagree, the code is right.** Reading the raw CSVs afterwards forced three changes
+> the plan did not anticipate — a fifth and sixth and seventh reason (`location_mismatch`,
+> `voided_in_a`, `duplicate_in_a`), the split-vs-duplicate rule, and org scoping by every
+> location a disagreement touches rather than by System A's alone. README and DECISIONS
+> describe what actually shipped; specs 03 and 04 in particular are superseded.
+
 This feature is split into six seam-scoped specs, each independently TDD-able. Build and
 test in this order — each spec's tests must be green before the next spec's implementation
 starts, since each layer is a real dependency of the next:
